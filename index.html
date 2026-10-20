@@ -1,0 +1,352 @@
+<title>Second Brain Index</title>
+<style>
+  /*
+    Layout: a console-style launcher — a fixed header bar with live filter,
+    below it a grid of section consoles (Wissensbasis, Workflows, Agenten,
+    Datenbanken, Verwandt), each a stack of entry rows styled like a file tree.
+  */
+  :root {
+    --bg: #0e1117;
+    --surface: #161b24;
+    --surface-2: #1d2430;
+    --fg: #e7ebf3;
+    --muted: #8993a8;
+    --accent: #5fd0c7;
+    --border: #262e3d;
+  }
+  @media (prefers-color-scheme: light) {
+    :root:not([data-theme="dark"]) {
+      --bg: #f3f4f7;
+      --surface: #ffffff;
+      --surface-2: #eceff4;
+      --fg: #171a21;
+      --muted: #5c6578;
+      --accent: #0f8f84;
+      --border: #dde1e9;
+      color-scheme: light;
+    }
+  }
+  :root[data-theme="light"] {
+    --bg: #f3f4f7;
+    --surface: #ffffff;
+    --surface-2: #eceff4;
+    --fg: #171a21;
+    --muted: #5c6578;
+    --accent: #0f8f84;
+    --border: #dde1e9;
+    color-scheme: light;
+  }
+  :root[data-theme="dark"] { color-scheme: dark; }
+
+  * { box-sizing: border-box; }
+  body {
+    background: var(--bg);
+    color: var(--fg);
+    font-family: "Source Sans 3", system-ui, sans-serif;
+    padding-left: max(16px, env(safe-area-inset-left, 0px));
+    padding-right: max(16px, env(safe-area-inset-right, 0px));
+  }
+  h1, h2, .display {
+    font-family: "Sora", system-ui, sans-serif;
+    text-wrap: balance;
+  }
+  .mono {
+    font-family: "JetBrains Mono", ui-monospace, monospace;
+    font-variant-numeric: tabular-nums;
+  }
+
+  header {
+    position: sticky;
+    top: env(safe-area-inset-top, 0px);
+    z-index: 10;
+    background: var(--bg);
+    border-bottom: 1px solid var(--border);
+    padding-block: 20px 16px;
+    margin-bottom: 28px;
+  }
+  body::before {
+    content: "";
+    position: fixed;
+    inset: 0 0 auto;
+    height: env(safe-area-inset-top, 0px);
+    z-index: 10;
+    background: var(--bg);
+  }
+  .eyebrow {
+    color: var(--accent);
+    font-size: 0.72rem;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+    margin: 0 0 6px;
+  }
+  h1 { font-size: clamp(1.5rem, 1.1rem + 1.6vw, 2.1rem); margin: 0 0 4px; font-weight: 700; }
+  .subtitle { color: var(--muted); margin: 0 0 16px; font-size: 0.95rem; max-width: 65ch; }
+
+  .filter-row { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; }
+  #filter {
+    flex: 1 1 260px;
+    min-width: 0;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    color: var(--fg);
+    border-radius: 8px;
+    padding: 10px 14px;
+    font-size: 0.95rem;
+    font-family: inherit;
+  }
+  #filter:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
+  #count { color: var(--muted); font-size: 0.82rem; white-space: nowrap; }
+
+  main { max-width: 980px; margin: 0 auto; padding-bottom: 48px; }
+
+  .section { margin-bottom: 30px; }
+  .section-head {
+    display: flex;
+    align-items: baseline;
+    gap: 10px;
+    margin-bottom: 10px;
+    border-bottom: 1px solid var(--border);
+    padding-bottom: 8px;
+  }
+  .section-head h2 { font-size: 1.05rem; margin: 0; }
+  .section-head .tally { color: var(--muted); font-size: 0.78rem; }
+
+  ul.entries { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 8px; }
+
+  .entry {
+    display: block;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 12px 14px;
+    text-decoration: none;
+    color: inherit;
+    transition: border-color 0.15s ease, background 0.15s ease;
+  }
+  .entry:hover, .entry:focus-visible {
+    border-color: var(--accent);
+    background: var(--surface-2);
+  }
+  .entry:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+
+  .entry-top { display: flex; align-items: center; gap: 10px; min-width: 0; }
+  .kind {
+    flex: 0 0 auto;
+    font-size: 0.66rem;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: var(--accent);
+    border: 1px solid var(--border);
+    border-radius: 999px;
+    padding: 2px 8px;
+  }
+  .title { font-weight: 600; min-width: 0; overflow-wrap: break-word; }
+  .path {
+    color: var(--muted);
+    font-size: 0.74rem;
+    margin-top: 4px;
+    overflow-wrap: break-word;
+  }
+  .highlight {
+    color: var(--muted);
+    font-size: 0.85rem;
+    margin-top: 6px;
+    line-height: 1.45;
+  }
+  .meta {
+    margin-top: 6px;
+    color: var(--muted);
+    font-size: 0.7rem;
+  }
+
+  .empty { color: var(--muted); font-size: 0.9rem; padding: 20px 0; }
+</style>
+
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Sora:wght@600;700&family=Source+Sans+3:wght@400;600&family=JetBrains+Mono:wght@400;500&display=swap">
+
+<header>
+  <p class="eyebrow">Notion · Workspace-Index</p>
+  <h1>KI Second Brain — Command Center</h1>
+  <p class="subtitle">Direkter Zugriff auf alle Bereiche des Command Centers: Wissensbasis, Workflows, Agenten und die zugehörigen Datenbanken.</p>
+  <div class="filter-row">
+    <input id="filter" type="search" placeholder="Filtern nach Titel, Pfad oder Stichwort …" aria-label="Einträge filtern">
+    <span id="count" class="mono"></span>
+  </div>
+</header>
+
+<main>
+  <div id="sections"></div>
+  <p id="empty" class="empty" hidden>Keine Treffer für diesen Filter.</p>
+</main>
+
+<script>
+  const DATA = [
+    {
+      section: "Start",
+      kind: "page",
+      title: "KI Second Brain – Command Center",
+      url: "https://app.notion.com/p/3e85a657be008104a376fa4bcc357247",
+      path: null,
+      highlight: "Second Brain Webseite: KI Second Brain · nazan-second-brain.ki-consultan-3592.chatgpt.site/",
+      edited: "2026-10-18"
+    },
+    {
+      section: "Wissensbasis",
+      kind: "page",
+      title: "KI Second Brain & Wissensmanagement",
+      url: "https://app.notion.com/p/3e85a657be00818a8508f444eb10a37f",
+      path: "Command Center / Projekte",
+      highlight: null,
+      edited: "2026-10-07"
+    },
+    {
+      section: "Wissensbasis",
+      kind: "page",
+      title: "Second Brain als persönliche Wissenszentrale",
+      url: "https://app.notion.com/p/3e85a657be00810bb552e19f24eb25d7",
+      path: "Command Center / Wissensbasis",
+      highlight: "Das Second Brain dient nicht nur als Ablage, sondern als Arbeitsumgebung.",
+      edited: "2026-09-27"
+    },
+    {
+      section: "Workflows",
+      kind: "page",
+      title: "Neue Quelle → Second Brain",
+      url: "https://app.notion.com/p/3e85a657be00810ab569d474ee4acaed",
+      path: "Command Center / Workflows",
+      highlight: "Neue Informationen werden systematisch ins Second Brain überführt, nicht ungeordnet gespeichert.",
+      edited: "2026-10-07"
+    },
+    {
+      section: "Agenten",
+      kind: "database",
+      title: "Agenten",
+      url: "https://app.notion.com/p/90259973421b4090860700364e26fc23",
+      path: "Command Center",
+      highlight: null,
+      edited: "2026-10-14"
+    },
+    {
+      section: "Agenten",
+      kind: "page",
+      title: "Wissensmanagement-Agent",
+      url: "https://app.notion.com/p/3e85a657be0081118ab9e892d6b29485",
+      path: "Command Center / Agenten",
+      highlight: "Verwandelt neue Quellen in Wissenseinträge, verknüpft mit „KI Second Brain & Wissensmanagement“.",
+      edited: "2026-10-07"
+    },
+    {
+      section: "Datenbanken",
+      kind: "database",
+      title: "Aufgaben",
+      url: "https://app.notion.com/p/f2a27e82e8ed4fdf8195cd8bef9b8519",
+      path: "Command Center",
+      highlight: null,
+      edited: "2026-09-30"
+    },
+    {
+      section: "Datenbanken",
+      kind: "database",
+      title: "Quellen",
+      url: "https://app.notion.com/p/231665d5685242da9a24214469b72669",
+      path: "Command Center",
+      highlight: null,
+      edited: "2026-10-07"
+    },
+    {
+      section: "Datenbanken",
+      kind: "database",
+      title: "Projekte",
+      url: "https://app.notion.com/p/0d5b960dcba643739eb818c7261b531a",
+      path: "Command Center",
+      highlight: null,
+      edited: "2026-09-27"
+    },
+    {
+      section: "Verwandt",
+      kind: "page",
+      title: "KI-Portfolio – Miro & Second Brain",
+      url: "https://app.notion.com/p/3eb5a657be00810e98f9e1aeddf00046",
+      path: "Command Center",
+      highlight: "Im bestehenden Command Center sind Wissensbasis, Quellen, Prompt Library, Projekte, Agenten, Workflows und Aufgaben vorhanden.",
+      edited: "2026-10-07"
+    }
+  ];
+
+  const SECTION_ORDER = ["Start", "Wissensbasis", "Workflows", "Agenten", "Datenbanken", "Verwandt"];
+
+  const sectionsEl = document.getElementById("sections");
+  const filterEl = document.getElementById("filter");
+  const countEl = document.getElementById("count");
+  const emptyEl = document.getElementById("empty");
+
+  function formatDate(iso) {
+    const d = new Date(iso + "T00:00:00");
+    return d.toLocaleDateString("de-DE", { day: "2-digit", month: "2-digit", year: "numeric" });
+  }
+
+  function render(filterText) {
+    const q = filterText.trim().toLowerCase();
+    sectionsEl.innerHTML = "";
+    let total = 0;
+
+    for (const sectionName of SECTION_ORDER) {
+      const items = DATA.filter((item) => item.section === sectionName && matches(item, q));
+      if (items.length === 0) continue;
+      total += items.length;
+
+      const section = document.createElement("div");
+      section.className = "section";
+
+      const head = document.createElement("div");
+      head.className = "section-head";
+      head.innerHTML = `<h2>${sectionName}</h2><span class="tally mono">${items.length}</span>`;
+      section.appendChild(head);
+
+      const list = document.createElement("ul");
+      list.className = "entries";
+
+      for (const item of items) {
+        const li = document.createElement("li");
+        const a = document.createElement("a");
+        a.className = "entry";
+        a.href = item.url;
+        a.target = "_blank";
+        a.rel = "noopener";
+
+        a.innerHTML = `
+          <div class="entry-top">
+            <span class="kind mono">${item.kind === "database" ? "DB" : "Page"}</span>
+            <span class="title">${escapeHtml(item.title)}</span>
+          </div>
+          ${item.path ? `<div class="path mono">${escapeHtml(item.path)}</div>` : ""}
+          ${item.highlight ? `<div class="highlight">${escapeHtml(item.highlight)}</div>` : ""}
+          <div class="meta mono">Zuletzt bearbeitet ${formatDate(item.edited)}</div>
+        `;
+        li.appendChild(a);
+        list.appendChild(li);
+      }
+
+      section.appendChild(list);
+      sectionsEl.appendChild(section);
+    }
+
+    countEl.textContent = `${total} von ${DATA.length}`;
+    emptyEl.hidden = total !== 0;
+  }
+
+  function matches(item, q) {
+    if (!q) return true;
+    const haystack = [item.title, item.path, item.highlight, item.section].filter(Boolean).join(" ").toLowerCase();
+    return haystack.includes(q);
+  }
+
+  function escapeHtml(str) {
+    return str.replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
+  }
+
+  filterEl.addEventListener("input", () => render(filterEl.value));
+  render("");
+</script>
